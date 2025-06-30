@@ -42,6 +42,19 @@ $webSubnet = New-AzVirtualNetworkSubnetConfig -Name $webSubnetName -AddressPrefi
 $mngSubnet = New-AzVirtualNetworkSubnetConfig -Name $mngSubnetName -AddressPrefix $mngSubnetIpRange -NetworkSecurityGroup $mngNsg
 $virtualNetwork = New-AzVirtualNetwork -Name $virtualNetworkName -ResourceGroupName $resourceGroupName -Location $location -AddressPrefix $vnetAddressPrefix -Subnet $webSubnet,$mngSubnet
 
+Write-Host "Creating private DNS zone $privateDnsZoneName ..."
+$privateDnsZone = New-AzPrivateDnsZone `
+    -ResourceGroupName $resourceGroupName `
+    -Name $privateDnsZoneName
+
+Write-Host "Linking DNS zone to virtual network with auto-registration..."
+$link = New-AzPrivateDnsVirtualNetworkLink `
+    -ResourceGroupName $resourceGroupName `
+    -ZoneName $privateDnsZoneName `
+    -Name "vnet-link" `
+    -VirtualNetworkId $virtualNetwork.Id `
+    -EnableRegistration
+
 Write-Host "Creating a SSH key resource ..."
 New-AzSshKey -Name $sshKeyName -ResourceGroupName $resourceGroupName -PublicKey $sshKeyPublicKey
 
@@ -66,6 +79,16 @@ $Params = @{
  }
 Set-AzVMExtension @Params
 
+Write-Host "Creating CNAME record for todo.or.nottodo..."
+$cnameRecord = New-AzPrivateDnsRecordConfig -Cname "$webVmName.$privateDnsZoneName"
+New-AzPrivateDnsRecordSet `
+    -ResourceGroupName $resourceGroupName `
+    -ZoneName $privateDnsZoneName `
+    -Name "todo" `
+    -RecordType CNAME `
+    -Ttl 3600 `
+    -PrivateDnsRecords $cnameRecord
+
 Write-Host "Creating a public IP ..."
 $publicIP = New-AzPublicIpAddress -Name $jumpboxVmName -ResourceGroupName $resourceGroupName -Location $location -Sku Basic -AllocationMethod Dynamic -DomainNameLabel $dnsLabel
 Write-Host "Creating a management VM ..."
@@ -79,6 +102,3 @@ New-AzVm `
 -VirtualNetworkName $virtualNetworkName `
 -SshKeyName $sshKeyName `
 -PublicIpAddressName $jumpboxVmName
-
-
-# Write your code here  -> 
