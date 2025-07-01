@@ -81,14 +81,11 @@ $Params = @{
 }
 Set-AzVMExtension @Params
 
-# Отримуємо реальне FQDN, зареєстроване через автореєстрацію
-Write-Host "Retrieving auto-registered FQDN for web server..."
-$nic = Get-AzNetworkInterface -ResourceId $webVm.NetworkProfile.NetworkInterfaces[0].Id
-$ipConfig = $nic.IpConfigurations[0]
-$fqdn = $ipConfig.PrivateIpAddress + ".$privateDnsZoneName"
+# Ключова зміна: використовуємо ім'я хоста замість IP-адреси
+$targetFqdn = "$webVmName.$privateDnsZoneName"
 
-Write-Host "Creating CNAME record for todo.or.nottodo..."
-$cnameRecord = New-AzPrivateDnsRecordConfig -Cname $fqdn
+Write-Host "Creating CNAME record for todo.or.nottodo pointing to $targetFqdn..."
+$cnameRecord = New-AzPrivateDnsRecordConfig -Cname $targetFqdn
 New-AzPrivateDnsRecordSet `
     -ResourceGroupName $resourceGroupName `
     -ZoneName $privateDnsZoneName `
